@@ -1,19 +1,4 @@
 #include "testApp.h"
-char myOverlaySource[] =
-"#extension GL_ARB_texture_rectangle : enable\n"
-"uniform sampler2DRect src, dest;\
-void main() {\
-vec2 pos = gl_TexCoord[0].st;	\
-vec4 srcColor = texture2DRect(src, pos);\
-if(srcColor < 0.5) {\
-    vec3 srcColor = texture2DRect(src, pos).rgb;\
-    vec4 dstColorBlur = texture2DRect(dstBlur, pos);\
-    vec3 offset = (dstColorBlur.rgb - srcColorBlur.rgb);\
-    gl_FragColor = vec4(2.* src.rgba * dest.rgba);\
-    } else {\
-        gl_FragColor = vec4(1 - 2 * (1 - src.rgba) * (1-dest.rgba));\
-    }\
-}";
 
 using namespace ofxCv;
 
@@ -22,7 +7,7 @@ void testApp::setup() {
 //	ofSetDataPathRoot("../data/");
 #endif
     ofSetDataPathRoot("../Resources/");
-    overlay.setupShaderFromSource(GL_FRAGMENT_SHADER, myOverlaySource);
+
     //load settings
     prefs.loadFile("config.xml");
     int offX, offY;
@@ -140,30 +125,24 @@ void testApp::update() {
                 
                 //draw the white on black mask of the cam face
                 maskFbo.begin();
-                ofClear(0, 255);
+                ofEnableAlphaBlending();
+                ofClear(0, 0);
                 camMesh.draw();
                 maskFbo.end();
                 
                 //draw the mask again for the src.
                 srcFbo.begin();
-                ofClear(0, 255);
-                camImage.draw(0, 0);
-                //ofEnableBlendMode(OF_BLENDMODE_ADD);
-                
-                ofEnableAlphaBlending();
-                
-                glEnable (GL_BLEND);
-                glBlendFunc (GL_ONE_MINUS_SRC_COLOR, GL_SRC_COLOR); // like Photoshop's 'Overlay' blending mode
-                //ofSetColor(0xFFFFFF);
-               
-               
-                
+                ofClear(0, 0);
                 extImage.bind();
                 camMesh.draw();
                 extImage.unbind();
                 srcFbo.end();
-                 ofDisableAlphaBlending();
+                ofDisableAlphaBlending();
                 
+                debugFbo.begin();
+                ofClear(0,0);
+                camMesh.drawWireframe();
+                debugFbo.end();
                 
                 
                
@@ -172,10 +151,12 @@ void testApp::update() {
             
             
 			
-			clone.setStrength(16);
+			clone.setStrength(1);
             //finally, "Clone" the  src onto the cam texture reference, using a blurred mask.
-			clone.update(srcFbo.getTextureReference(), camImage.getTextureReference(), maskFbo.getTextureReference());
-		}
+			//clone.update(srcFbo.getTextureReference(), camImage.getTextureReference(), maskFbo.getTextureReference());
+            clone.overlay(srcFbo.getTextureReference(), camImage.getTextureReference(), maskFbo.getTextureReference());
+
+        }
 	} 
 }
 
@@ -185,9 +166,9 @@ void testApp::draw() {
 
     
 	if(extImage.getWidth() > 0 && cloneReady && tracking) {
-		//clone.draw(0, 0);
-        camImage.draw(0, 0);
-        srcFbo.draw(0,0);
+		clone.draw(0, 0);
+        //camImage.draw(0, 0);
+        //srcFbo.draw(0,0);
         
         
         
@@ -221,7 +202,9 @@ void testApp::drawDebug(){
     srcFbo.draw(camHeight, debugHeight,debugWidth,debugHeight);
     drawHighlightString("srcFBO", camHeight+10, debugHeight+10);
     
-    debugFbo.draw(camHeight, debugHeight*2,debugWidth,debugHeight);
+    debugFbo.draw(0,0);
+
+ //   debugFbo.draw(camHeight, debugHeight*2,debugWidth,debugHeight);
     drawHighlightString("debug", camHeight+10, debugHeight*2+10);
 
     
@@ -345,6 +328,7 @@ void testApp::remoteEvent(RemoteEvent &e){
     cout << "Remote Event: "+e.command+","+ e.argument << endl;
     string com = e.command;
     if (com  == "snap"){
+        remote.sendCommand("reqTmpDir", "now");
         imgSnapped = false;  //setup tracker to grab another image
     }else if(com  == "tmpDir"){
         tmp = e.argument;
