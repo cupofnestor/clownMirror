@@ -58,11 +58,11 @@
          ignoreCount = "0"
          continueAfterRunningActions = "No"
          filePath = "src/testApp.cpp"
-         timestampString = "394473809.787634"
+         timestampString = "395078071.519737"
          startingColumnNumber = "9223372036854775807"
          endingColumnNumber = "9223372036854775807"
-         startingLineNumber = "161"
-         endingLineNumber = "161"
+         startingLineNumber = "180"
+         endingLineNumber = "180"
          landmarkName = "testApp::update()"
          landmarkType = "5">
       </FileBreakpoint>
@@ -129,6 +129,19 @@
          startingLineNumber = "73"
          endingLineNumber = "73"
          landmarkName = "threadedFunction()"
+         landmarkType = "5">
+      </FileBreakpoint>
+      <FileBreakpoint
+         shouldBeEnabled = "Yes"
+         ignoreCount = "0"
+         continueAfterRunningActions = "No"
+         filePath = "src/testApp.cpp"
+         timestampString = "395078071.519737"
+         startingColumnNumber = "9223372036854775807"
+         endingColumnNumber = "9223372036854775807"
+         startingLineNumber = "27"
+         endingLineNumber = "27"
+         landmarkName = "testApp::setup()"
          landmarkType = "5">
       </FileBreakpoint>
    </FileBreakpoints>

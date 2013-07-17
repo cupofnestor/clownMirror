@@ -40,13 +40,14 @@ public:
     
 	vector<ofVec2f> srcPoints;
 	
-    bool tracking = true;                   //Live Tracking is active
+    bool tracking = false;                   //Live Tracking is active
 	bool cloneReady;                        //Cloner is initialized and running
-    bool imgSnapped = false;                //A face image has been captured this session.
+    bool imgSnapped = true;                //A face image has been captured this session.
     bool cloning = true;                    //Cloning is active.
     bool scaleCV = false;                   //Down-res camera image for CV process.
     bool debug = false;
-    
+    bool tenEighty = false;
+
 	Clone clone;
 	ofFbo srcFbo, maskFbo, debugFbo;
     
@@ -56,8 +57,11 @@ public:
     int frameHeight = 480;
     int camWidth = 1280;
     int camHeight = 720;
+    int drawWidth = 1280;
+    int drawHeight = 720;
     int debugWidth = 240;
     int debugHeight = 427;
+    int camRotation;
     string time;
     string tmp;
     string dbString;

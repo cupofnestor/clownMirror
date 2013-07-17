@@ -19,14 +19,18 @@ void testApp::setup() {
     offY = prefs.getValue("SCREEN:OFFY",0);
     full = prefs.getValue("SCREEN:FULLSCREEN",0);
     camID = prefs.getValue("CAM",0);
+    camRotation = prefs.getValue("ROTATION",1);
     scaleCV = (prefs.getValue("CVSCALE",0) == 1) ? true : false;
+    tenEighty = (prefs.getValue("FULLHD",0) == 1) ? true : false;
+    drawWidth = (tenEighty) ? 1080 : 720;
+    drawHeight = (tenEighty) ? 1920 : 1280;
     debug = (dbg) ? true : false;
     
     //setup window
     ofSetWindowPosition(offX,offY);
     if (full==1) ofToggleFullscreen();
 
-    cout << "Debugging: " << dbg << endl;
+    ofLog() << "Debugging: " << dbg << endl;
 
     //setup UDP biderectinal comm
     remote.setup();
@@ -42,7 +46,7 @@ void testApp::setup() {
     cam.setDeviceID(camID);
 	cam.initGrabber(1280, 720);
     //and cloner, portrait mode
-	clone.setup(720,1280);
+	clone.setup(drawWidth,drawHeight);
     
     //setup frame buffer objects
 	ofFbo::Settings settings;
@@ -53,12 +57,21 @@ void testApp::setup() {
     
     //to contain the white on black mask based on tracked face outline
 	maskFbo.allocate(settings);
-    //to contain
-    srcFbo.allocate(settings);
-    //one more just for debug images
-    debugFbo.allocate(settings);
     maskImage.allocate(settings.width,settings.height,OF_IMAGE_COLOR_ALPHA);
     
+    //to contain buffer to be mapped to face
+    srcFbo.allocate(settings);
+    //the rotated camera image
+    camImage.allocate(settings.width,settings.height,OF_IMAGE_COLOR);
+
+    //one more just for debug images
+    if(debug){
+        debugFbo.allocate(settings);
+        debugFbo.begin();
+        ofClear(0);
+        debugFbo.end();
+    }
+       
     //check if temp directory has been generated
     remote.sendCommand("reqTmpDir", "now");
     
@@ -73,6 +86,8 @@ void testApp::setup() {
 	basicTracker.setIterations(25);
 	basicTracker.setAttempts(4);
     tracking = false;
+    
+   
 /* commented from original example which auto-loads directory of faces
 	faces.allowExt("jpg");
 	faces.allowExt("png");
@@ -117,7 +132,15 @@ void testApp::update() {
             remote.queueCommand("face", "found");
             remote.sendCommands();
             
-            if(true){ //If we are looking for faces.
+            if(debug){
+                camMesh = liveTracker.getImageMesh();
+                debugFbo.begin();
+                ofClear(0,0);
+                camMesh.drawWireframe();
+                debugFbo.end();
+            }
+            
+            if(tracking){ //If we are looking for faces.
                 camMesh = liveTracker.getImageMesh();
                 camMesh.clearTexCoords();
                 camMesh.addTexCoords(srcPoints);  //srcPoints is empty unless a src face has been loaded
@@ -139,11 +162,7 @@ void testApp::update() {
                 srcFbo.end();
                 ofDisableAlphaBlending();
                 
-                debugFbo.begin();
-                ofClear(0,0);
-                camMesh.drawWireframe();
-                debugFbo.end();
-                
+            
                 
                
             }
@@ -174,14 +193,16 @@ void testApp::draw() {
         
       
 	} else {
-		camImage.draw(0, 0);
+       
+		camImage.draw(0, 0, drawWidth, drawHeight);
+      
 	} 
 	
     
     
     
     if(debug){
-        
+        ofEnableAlphaBlending();
         if(!liveTracker.getFound()) {
             drawHighlightString("camera face not found", 10, 10);
         }
@@ -192,6 +213,7 @@ void testApp::draw() {
         }
         drawHighlightString(dbString, 10, 40);
         drawDebug();
+        ofDisableAlphaBlending();
     }
 }
 
@@ -240,41 +262,50 @@ void testApp::dragEvent(ofDragInfo dragInfo) {
 
 
 void testApp::grabFace(){
-    cout << "Grabbing Source Image from webCam " << endl;
-
+    imgSnapped = true;
+    ofLog() << "Attempting to grab Source Image from webCam " << endl;
+    tracking = false;
     basicTracker.update(toCv(camImage));
-    srcPoints = basicTracker.getImagePoints();
-    ofMesh trackedMesh = basicTracker.getImageMesh();
-    faceRect = basicTracker.getImageFeature(ofxFaceTracker::FACE_OUTLINE).getBoundingBox();
-    time = ofGetTimestampString();
-    camImage.saveImage(tmp+"/"+time+".png");
+    
+    Boolean faceFound = liveTracker.getFound();
+    
+    if(faceFound){
+        
+        srcPoints = basicTracker.getImagePoints();
+        ofMesh trackedMesh = basicTracker.getImageMesh();
+        faceRect = basicTracker.getImageFeature(ofxFaceTracker::FACE_OUTLINE).getBoundingBox();
+        time = ofGetTimestampString();
+        camImage.saveImage(tmp+"/"+time+".png");
     
     
-    ofPixels p;
-    p.allocate(720,1280,OF_IMAGE_COLOR);
+        ofPixels p;
+        p.allocate(720,1280,OF_IMAGE_COLOR);
     
-    maskFbo.begin();
-    ofClear(0, 255);
-    trackedMesh.draw();
-    maskFbo.end();
+        maskFbo.begin();
+        ofClear(0, 255);
+        trackedMesh.draw();
+        maskFbo.end();
     
-    maskFbo.readToPixels(p);
+        maskFbo.readToPixels(p);
     
-    maskImage.setFromPixels(p);
-    maskImage.reloadTexture();
-    maskImage.saveImage(tmp+"/"+time+"mask.png");
+        maskImage.setFromPixels(p);
+        maskImage.reloadTexture();
+        maskImage.saveImage(tmp+"/"+time+"mask.png");
     
    
     
     
-    string cmd = "imageSaved";
-    remote.queueCommand(cmd, time);
-    cmd = "faceRect";
-    string face = rect2str(faceRect);
-    remote.queueCommand(cmd,face);
-    extImage = camImage;
-    imgSnapped = true;
-    remote.sendCommands();
+        string cmd = "imageSaved";
+        remote.queueCommand(cmd, time);
+        cmd = "faceRect";
+        string face = rect2str(faceRect);
+        remote.queueCommand(cmd,face);
+        extImage = camImage;
+        
+        remote.sendCommands();
+    }else{
+        imgSnapped = false;
+    }
 };
 
 string testApp::rect2str(ofRectangle & rect){
@@ -296,14 +327,14 @@ string testApp::rect2str(ofRectangle & rect){
 //IMAGE PROCESSES
 ofImage testApp::mirror(ofPixels  p){
     ofImage i = p;
-    i.rotate90(1);
+    i.rotate90(camRotation);
     i.mirror(1,0);
     return i;
 }
 
 //EVENTS
 void testApp::keyPressed(int key){
-    cout << key << endl;
+    ofLog() << "key Pressed:" << key << endl;
 	switch(key){
 	case OF_KEY_UP:
 		currentFace++;
@@ -325,15 +356,18 @@ void testApp::keyPressed(int key){
 }
 
 void testApp::remoteEvent(RemoteEvent &e){
-    cout << "Remote Event: "+e.command+","+ e.argument << endl;
+    ofLog() << "Remote Event: "+e.command+","+ e.argument << endl;
     string com = e.command;
     if (com  == "snap"){
         remote.sendCommand("reqTmpDir", "now");
         imgSnapped = false;  //setup tracker to grab another image
     }else if(com  == "tmpDir"){
         tmp = e.argument;
-        cout << "tmp directory: "+tmp << endl;
+        ofLogToFile(tmp+"clown.log");
+        ofLog() << "tmp directory: "+tmp << endl;
     }else if(com == "facePainted"){
         loadFace(e.argument);
+    }else if(com == "attract"){
+        tracking = false;
     }
 }
